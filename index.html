@@ -1,0 +1,1173 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <meta name="description" content="クルスタ（ティンクルスターナイツ）の名刺・プロフィール画面の録画を、自動で切り抜いて1ループ動画にする非公式ファンツール。動画の処理はすべて端末内で行います。" />
+    <title>名刺動画1ループ加工</title>
+    <style>
+      :root {
+        --bg: #f4f4f2;
+        --panel: #ffffff;
+        --ink: #1d1a14;
+        --ink-soft: #5c564a;
+        --line: #ddd6c6;
+        --accent: #9a7414;
+        --accent-strong: #7d5d0d;
+        --accent-ink: #ffffff;
+        --gold: #c9a227;
+        --ok: #2e7d43;
+        --warn: #b3541e;
+        --track: #e7e2d4;
+        --canvas-bg: #101013;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #121316;
+          --panel: #1b1d21;
+          --ink: #ece7d8;
+          --ink-soft: #a89f8c;
+          --line: #34373e;
+          --accent: #d4af37;
+          --accent-strong: #e5c65a;
+          --accent-ink: #191407;
+          --gold: #d4af37;
+          --ok: #6fce8b;
+          --warn: #e08a4e;
+          --track: #2c2f36;
+          --canvas-bg: #000000;
+        }
+      }
+      * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Noto Sans JP", sans-serif;
+        line-height: 1.6;
+      }
+      .wrap { max-width: 880px; margin: 0 auto; padding: 20px 16px 56px; }
+      header.top { padding: 10px 2px 4px; }
+      header.top h1 {
+        font-family: "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Yu Mincho", "YuMincho", serif;
+        font-size: 27px; font-weight: 700; letter-spacing: .04em; margin: 0 0 6px;
+      }
+      header.top p { margin: 0; color: var(--ink-soft); font-size: 14px; }
+      .privacy { margin-top: 10px; font-size: 13px; color: var(--ink-soft); display: flex; gap: 8px; align-items: flex-start; }
+      .privacy svg { flex: none; margin-top: 3px; }
+      section.panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 18px 18px 20px;
+        margin-top: 18px;
+      }
+      section.panel > h2 {
+        font-size: 16px; margin: 0 0 4px; display: flex; align-items: baseline; gap: 10px;
+      }
+      section.panel > h2 .step {
+        font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+        color: var(--accent); font-size: 20px; font-weight: 700;
+      }
+      section.panel > p.desc { margin: 0 0 12px; font-size: 13px; color: var(--ink-soft); }
+      select {
+        font: inherit; font-size: 14px; cursor: pointer;
+        border-radius: 8px; border: 1px solid var(--line);
+        background: var(--panel); color: var(--ink);
+        padding: 8px 10px;
+      }
+      .row label.flabel { font-size: 13px; color: var(--ink-soft); }
+      section.panel.disabled { opacity: .45; pointer-events: none; }
+      .drop {
+        border: 1.5px dashed var(--gold);
+        border-radius: 10px;
+        padding: 26px 16px;
+        text-align: center;
+        cursor: pointer;
+        background: transparent;
+        transition: background .15s ease;
+      }
+      .drop:hover, .drop.over { background: color-mix(in srgb, var(--gold) 9%, transparent); }
+      .drop .big { font-size: 16px; font-weight: 700; }
+      .drop .small { font-size: 12.5px; color: var(--ink-soft); margin-top: 4px; }
+      .fileinfo { margin-top: 12px; font-size: 13.5px; display: none; }
+      .fileinfo b { font-weight: 700; }
+      .status { margin-top: 10px; font-size: 13.5px; min-height: 1.4em; }
+      .status.working { color: var(--accent-strong); }
+      .status.done { color: var(--ok); }
+      .status.error { color: var(--warn); }
+      .bar { height: 8px; background: var(--track); border-radius: 99px; overflow: hidden; margin-top: 8px; display: none; }
+      .bar > i { display: block; height: 100%; width: 0%; background: var(--gold); border-radius: 99px; transition: width .25s ease; }
+      canvas.stage {
+        display: block; width: 100%; height: auto; background: var(--canvas-bg);
+        border-radius: 6px; touch-action: none;
+      }
+      canvas.preview {
+        display: block; margin: 0 auto; max-width: 100%; height: auto; background: var(--canvas-bg); border-radius: 6px;
+      }
+      .sliders { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 22px; margin-top: 14px; }
+      @media (max-width: 560px) { .sliders { grid-template-columns: 1fr; } }
+      .ctl { display: grid; grid-template-columns: 64px 1fr 74px; align-items: center; gap: 10px; padding: 3px 0; }
+      .ctl label { font-size: 13px; color: var(--ink-soft); white-space: nowrap; }
+      .ctl output { font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; }
+      input[type="range"] { width: 100%; accent-color: var(--accent); height: 28px; }
+      .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; }
+      button {
+        font: inherit; font-size: 14px; cursor: pointer;
+        border-radius: 8px; border: 1px solid var(--line);
+        background: var(--panel); color: var(--ink);
+        padding: 9px 16px;
+      }
+      button:hover { border-color: var(--gold); }
+      button.primary {
+        background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700;
+      }
+      button.primary:hover { background: var(--accent-strong); }
+      button:disabled { opacity: .5; cursor: default; }
+      button.big-primary { font-size: 15.5px; padding: 12px 22px; width: 100%; }
+      .readouts { display: flex; flex-wrap: wrap; gap: 8px 26px; margin-top: 12px; font-size: 13.5px; }
+      .readouts b { font-variant-numeric: tabular-nums; }
+      .note { font-size: 12.5px; color: var(--ink-soft); margin-top: 8px; }
+      .result { display: none; margin-top: 16px; }
+      .result video { width: 100%; height: auto; border-radius: 6px; background: var(--canvas-bg); display: block; }
+      .result .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; align-items: stretch; }
+      #shareBtn { flex: 1 1 200px; font-size: 15.5px; padding: 12px 20px; }
+      a.download {
+        display: inline-flex; align-items: center; justify-content: center; text-decoration: none;
+        font-weight: 700; font-size: 14.5px;
+        border: 1px solid var(--gold); color: var(--ink); background: var(--panel);
+        border-radius: 8px; padding: 11px 20px;
+      }
+      footer { margin-top: 26px; font-size: 12px; color: var(--ink-soft); text-align: center; }
+      .src-wrap { margin-top: 12px; }
+      .src-wrap video { display: block; margin: 0 auto; max-width: 100%; max-height: 260px; border-radius: 6px; background: var(--canvas-bg); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <h1>名刺動画 1ループ加工</h1>
+        <p>画面録画の動画から、名刺の部分だけを切り抜いて、自然につながる1ループの無音動画に仕上げます。</p>
+        <p class="privacy">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+          <span>選択した動画はこの端末の中だけで処理します。サーバーへの送信、履歴やログの保存は一切しません。ページを閉じればデータは消えます。</span>
+        </p>
+      </header>
+
+      <section class="panel" id="panel1">
+        <h2><span class="step">1</span>動画を選ぶ</h2>
+        <p class="desc">クルスタのプロフィール画面で名刺を表示したまま録った、画面録画の動画を選んでください。</p>
+        <div class="drop" id="drop" role="button" tabindex="0" aria-label="動画ファイルを選ぶ">
+          <div class="big">タップして動画を選ぶ</div>
+          <div class="small">または この枠に動画ファイルをドロップ（MP4 / MOV）</div>
+        </div>
+        <input type="file" id="fileInput" accept="video/mp4,video/quicktime,.mp4,.mov" hidden />
+        <div class="fileinfo" id="fileInfo"></div>
+        <div class="src-wrap" id="srcWrap" style="display:none">
+          <video id="srcVideo" muted playsinline preload="auto"></video>
+        </div>
+        <div class="status" id="status1"></div>
+        <div class="bar" id="bar1"><i></i></div>
+        <button class="primary" id="manualStart" type="button" style="display:none; margin-top:12px; width:100%">読み込みを開始する</button>
+        <p class="note" id="loadHint" style="display:none">ファイルを選んだら、上のボタンをタップして読み込みを開始してください。</p>
+      </section>
+
+      <section class="panel disabled" id="panel2">
+        <h2><span class="step">2</span>名刺の範囲</h2>
+        <p class="desc">読み込み時は、枠の種類にかかわらず名刺の輪郭から通常枠サイズ（余白なし）で取り込みます。特殊枠の場合は下の「枠の種類」で「特殊枠」を選んでください。余白付きの広い範囲に切り替わります（種類を変えると位置はリセットされます）。枠の四隅をドラッグするか、スライダーで微調整もできます。</p>
+        <canvas class="stage" id="cropCanvas" width="880" height="405"></canvas>
+        <div class="sliders">
+          <div class="ctl"><label for="cropX">左端 X</label><input type="range" id="cropX" min="0" max="100" value="0" /><output id="cropXVal">–</output></div>
+          <div class="ctl"><label for="cropY">上端 Y</label><input type="range" id="cropY" min="0" max="100" value="0" /><output id="cropYVal">–</output></div>
+          <div class="ctl"><label for="cropW">幅</label><input type="range" id="cropW" min="10" max="100" value="10" /><output id="cropWVal">–</output></div>
+          <div class="ctl"><label for="cropH">高さ</label><input type="range" id="cropH" min="10" max="100" value="10" /><output id="cropHVal">–</output></div>
+        </div>
+        <div class="row">
+          <label class="flabel" for="frameType">枠の種類</label>
+          <select id="frameType">
+            <option value="normal" selected>通常枠（枠なし・銀枠・金枠）</option>
+            <option value="special">特殊枠</option>
+          </select>
+          <span class="note" id="cropNote"></span>
+        </div>
+      </section>
+
+      <section class="panel disabled" id="panel3">
+        <h2><span class="step">3</span>ループ区間</h2>
+        <p class="desc">キャラの待機モーションが一周する区間を自動で探します。末尾に画面録画の操作UI等が映り込んだ部分は自動で除外されます。</p>
+        <canvas class="preview" id="previewCanvas" width="480" height="280"></canvas>
+        <div class="sliders">
+          <div class="ctl"><label for="loopStart">開始</label><input type="range" id="loopStart" min="0" max="10" step="0.01" value="0" /><output id="loopStartVal">–</output></div>
+          <div class="ctl"><label for="loopEnd">終了</label><input type="range" id="loopEnd" min="0" max="10" step="0.01" value="0" /><output id="loopEndVal">–</output></div>
+        </div>
+        <div class="readouts">
+          <span>区間の長さ <b id="loopLen">–</b></span>
+          <span>つなぎ目の一致度 <b id="seamScore">–</b></span>
+        </div>
+        <div class="row">
+          <button id="playPreview" type="button">ループ再生で確認</button>
+          <button id="redetectLoop" type="button">ループを自動検出し直す</button>
+        </div>
+        <div class="status" id="status3"></div>
+        <div class="bar" id="bar3"><i></i></div>
+      </section>
+
+      <section class="panel disabled" id="panel4">
+        <h2><span class="step">4</span>書き出し</h2>
+        <p class="desc">音声トラックを含まないMP4で書き出します。変換は端末内で行うため、数十秒かかることがあります。</p>
+        <button class="primary big-primary" id="exportBtn" type="button">ミュートMP4を書き出す</button>
+        <div class="status" id="status4"></div>
+        <div class="bar" id="bar4"><i></i></div>
+        <div class="result" id="resultBox">
+          <video id="resultVideo" controls loop muted playsinline></video>
+          <p class="note" id="resultInfo" style="margin-top:10px"></p>
+          <div class="actions">
+            <button class="primary" id="shareBtn" type="button">動画を保存する</button>
+            <a class="download" id="downloadLink" href="#" download="meishi-loop.mp4">ダウンロード</a>
+          </div>
+          <p class="note" id="saveHint"></p>
+        </div>
+      </section>
+
+      <footer>対応形式：MP4 / MOV<br />非公式のファンメイドツールです。運営・開発元とは関係ありません。</footer>
+    </div>
+
+    <script>
+    "use strict";
+    /* ---------- helpers ---------- */
+    const $ = (id) => document.getElementById(id);
+    const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+    const fmtT = (t) => t.toFixed(2) + " 秒";
+    const even = (v) => Math.max(2, Math.round(v / 2) * 2);
+
+    function setStatus(el, msg, kind) {
+      el.textContent = msg || "";
+      el.className = "status" + (kind ? " " + kind : "");
+    }
+    function setBar(barEl, pct) {
+      if (pct == null) { barEl.style.display = "none"; return; }
+      barEl.style.display = "block";
+      barEl.firstElementChild.style.width = clamp(pct, 0, 100) + "%";
+    }
+
+    /* ---------- state ---------- */
+    const state = {
+      file: null, fileName: "", url: null,
+      vw: 0, vh: 0, duration: 0,
+      crop: { x: 0, y: 0, w: 0, h: 0 },
+      frameMode: "normal",
+      baseRect: null,
+      loopStart: 0, loopEnd: 0, contentEnd: 0,
+      seamMAD: null,
+      resultUrl: null,
+      resultBlob: null,
+      resultName: "",
+      busy: false,
+    };
+
+    const video = $("srcVideo");
+
+    function seekTo(t) {
+      return new Promise((resolve, reject) => {
+        const target = clamp(t, 0, Math.max(0, state.duration - 0.001));
+        if (Math.abs(video.currentTime - target) < 0.004 && video.readyState >= 2) { resolve(); return; }
+        const onSeeked = () => { cleanup(); resolve(); };
+        const onErr = () => { cleanup(); reject(new Error("seek failed")); };
+        const timer = setTimeout(() => { cleanup(); resolve(); }, 2500);
+        function cleanup() {
+          clearTimeout(timer);
+          video.removeEventListener("seeked", onSeeked);
+          video.removeEventListener("error", onErr);
+        }
+        video.addEventListener("seeked", onSeeked);
+        video.addEventListener("error", onErr);
+        video.currentTime = target;
+      });
+    }
+
+    function makeCanvas(w, h) {
+      const c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      return c;
+    }
+
+    /* draw current video frame region into ctx of given canvas at native video res */
+    function grabRegion(sx, sy, sw, sh, outW, outH) {
+      const c = makeCanvas(outW, outH);
+      const ctx = c.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, outW, outH);
+      return c;
+    }
+    function grayOf(canvas) {
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      const out = new Float32Array(canvas.width * canvas.height);
+      for (let i = 0, j = 0; i < d.length; i += 4, j++) {
+        out[j] = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      }
+      return out;
+    }
+    function mad(a, b) {
+      let s = 0;
+      for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]);
+      return s / a.length;
+    }
+
+    /* ---------- step 1: file ---------- */
+    const drop = $("drop"), fileInput = $("fileInput");
+    drop.addEventListener("click", () => fileInput.click());
+    drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); } });
+    ["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+    ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+    drop.addEventListener("drop", (e) => {
+      const f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) loadFile(f);
+    });
+    fileInput.addEventListener("change", () => {
+      const f = fileInput.files && fileInput.files[0];
+      fileInput.value = ""; // allow re-picking the same file after a failed load
+      if (f) loadFile(f);
+    });
+
+    /* Wait until the video's metadata is usable. Resolves on the load events
+       or by polling readyState; rejects on error or after timeoutMs so the UI
+       can never sit on "読み込んでいます" forever. */
+    function waitForMetadata(timeoutMs) {
+      return new Promise((resolve, reject) => {
+        if (video.readyState >= 1 && video.videoWidth) { resolve(); return; }
+        let done = false;
+        const finish = (fn, arg) => {
+          if (done) return;
+          done = true;
+          cleanup();
+          fn(arg);
+        };
+        const ok = () => finish(resolve);
+        const ng = () => finish(reject, new Error("load"));
+        const poll = setInterval(() => {
+          if (video.readyState >= 1 && video.videoWidth) finish(resolve);
+        }, 200);
+        const timer = setTimeout(() => finish(reject, new Error("timeout")), timeoutMs);
+        function cleanup() {
+          clearInterval(poll);
+          clearTimeout(timer);
+          video.removeEventListener("loadedmetadata", ok);
+          video.removeEventListener("loadeddata", ok);
+          video.removeEventListener("canplay", ok);
+          video.removeEventListener("error", ng);
+        }
+        video.addEventListener("loadedmetadata", ok);
+        video.addEventListener("loadeddata", ok);
+        video.addEventListener("canplay", ok);
+        video.addEventListener("error", ng);
+      });
+    }
+
+    /* One load attempt against the current state.url. Rejects with
+       Error("load") on a real decode error, Error("timeout") if the
+       metadata never arrives. */
+    function attemptLoad(timeoutMs) {
+      video.src = state.url;
+      const ready = waitForMetadata(timeoutMs);
+      video.load();
+      /* iOS Safari and in-app browsers may never start loading a video that
+         is not played; a muted inline play() kicks the load pipeline off.
+         Some webviews only accept the kick a moment after the file handle
+         is ready, so re-kick play() periodically until metadata arrives. */
+      const kick = () => {
+        const primed = video.play();
+        if (primed && primed.catch) primed.catch(() => {});
+      };
+      kick();
+      const kicker = setInterval(kick, 1500);
+      return ready.then(
+        () => { clearInterval(kicker); },
+        (e) => { clearInterval(kicker); throw e; }
+      );
+    }
+
+    /* The only load path: picking a file never starts a load on its own.
+       The user taps this button, and the load is triggered inside that
+       genuine tap, which some in-app browsers require before they will
+       fetch media at all (their engines refuse to start loading on a
+       programmatic play()). */
+    $("manualStart").addEventListener("click", async () => {
+      const file = state.file;
+      if (!file || state.busy) return;
+      state.busy = true;
+      $("manualStart").style.display = "none";
+      $("loadHint").style.display = "none";
+      $("srcWrap").style.display = "block";
+      setStatus($("status1"), "動画を読み込んでいます…", "working");
+      setBar($("bar1"), 8);
+      try {
+        await loadVideoSource(file);
+        video.pause();
+        if (!video.videoWidth) throw new Error("codec");
+        state.vw = video.videoWidth;
+        state.vh = video.videoHeight;
+        state.duration = video.duration;
+        $("fileInfo").style.display = "block";
+        $("fileInfo").innerHTML = "<b>" + escapeHtml(state.fileName) + "</b> ／ " +
+          state.vw + " × " + state.vh + " ／ " + state.duration.toFixed(1) + " 秒 ／ " +
+          (file.size / 1048576).toFixed(1) + " MB";
+        ["panel2", "panel3", "panel4"].forEach(id => $(id).classList.remove("disabled"));
+        setupCropControls();
+        setupLoopControls();
+        await seekTo(Math.min(1.0, state.duration * 0.25));
+        state.busy = false;
+        await runAutoDetect(true);
+      } catch (err) {
+        state.busy = false;
+        setBar($("bar1"), null);
+        video.pause();
+        $("srcWrap").style.display = "none";
+        $("manualStart").style.display = "block";
+        $("loadHint").style.display = "block";
+        if (err && err.message === "timeout") {
+          setStatus($("status1"), "動画の読み込みが始まりませんでした。もう一度「読み込みを開始する」をタップしてみてください。改善しない場合は、別のブラウザで開いてお試しください。", "error");
+        } else {
+          setStatus($("status1"), "この動画をブラウザで読み込めませんでした。MP4 / MOV形式の動画でお試しください。", "error");
+        }
+      }
+    });
+
+    /* Load the picked file into the video element; called only from the
+       tap handler above, so the video stays shown on screen inside the
+       step 1 panel while loading (an invisible video is never fetched at
+       all by some in-app browsers). If the first attempt stalls, retry
+       once from an in-memory copy of the file bytes, because some
+       webviews also stall on blob URLs backed directly by a picked File. */
+    async function loadVideoSource(file) {
+      try {
+        await attemptLoad(12000);
+        return;
+      } catch (e) {
+        if (e && e.message === "load") throw e;
+      }
+      setStatus($("status1"), "読み込みを再試行しています…", "working");
+      const buf = await file.arrayBuffer();
+      const copy = new Blob([buf], { type: file.type || "video/mp4" });
+      if (state.url) URL.revokeObjectURL(state.url);
+      state.url = URL.createObjectURL(copy);
+      await attemptLoad(15000);
+    }
+
+    /* Picking a file only stages it: show its name and the start button.
+       Nothing is loaded until the user taps the button. */
+    function loadFile(file) {
+      if (state.busy) return;
+      stopPreview();
+      if (state.url) URL.revokeObjectURL(state.url);
+      if (state.resultUrl) URL.revokeObjectURL(state.resultUrl);
+      state.resultUrl = null;
+      state.resultBlob = null;
+      state.resultName = "";
+      state.baseRect = null;
+      $("resultBox").style.display = "none";
+      state.file = file;
+      state.fileName = file.name || "video";
+      state.url = URL.createObjectURL(file);
+      video.removeAttribute("src");
+      video.load();
+      $("srcWrap").style.display = "none";
+      $("fileInfo").style.display = "block";
+      $("fileInfo").innerHTML = "<b>" + escapeHtml(state.fileName) + "</b> ／ " +
+        (file.size / 1048576).toFixed(1) + " MB";
+      setStatus($("status1"), "", "");
+      setBar($("bar1"), null);
+      $("manualStart").style.display = "block";
+      $("loadHint").style.display = "block";
+    }
+    function escapeHtml(s) {
+      return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    /* ---------- auto detection pipeline ---------- */
+    async function runAutoDetect(first) {
+      state.busy = true;
+      try {
+        setStatus($("status1"), "名刺の枠を検出しています…", "working");
+        setBar($("bar1"), 30);
+        await detectBaseRect();
+        state.frameMode = "normal";
+        $("frameType").value = "normal";
+        /* no detection note on import: the note under the frame-type
+           selector only ever shows the switch message when the type
+           is changed by hand */
+        $("cropNote").textContent = "";
+        applyCrop(cropForMode("normal"), null);
+        drawCropCanvas();
+        setBar($("bar1"), 55);
+        setStatus($("status1"), "ループ区間を解析しています…（数秒かかります）", "working");
+        const loop = await detectLoop((p) => setBar($("bar1"), 55 + p * 0.45));
+        applyLoop(loop.start, loop.end, loop.madVal);
+        drawPreviewFrame();
+        setBar($("bar1"), null);
+        setStatus($("status1"), "自動検出が完了しました。範囲と区間を確認して、書き出してください。", "done");
+      } catch (err) {
+        setBar($("bar1"), null);
+        setStatus($("status1"), "自動検出の一部がうまくいきませんでした。スライダーで調整できます。", "error");
+      } finally {
+        state.busy = false;
+      }
+    }
+
+    /* --- card detection: find the contour rectangle, once ---
+       All search windows and thresholds are fractions of the frame
+       size, and detection runs on a width-normalized copy, so results
+       do not depend on the recording resolution or device.
+       Detection deliberately does ONE thing: locate the card's
+       contour rectangle and store it as state.baseRect (native
+       coordinates). There is no frame-type classification anywhere -
+       repeated attempts to auto-classify the frame kept
+       contradicting themselves on real recordings, so every import
+       is cropped as a normal frame (the base rectangle as-is, zero
+       margin), and the special frame type is purely a manual choice
+       that re-derives the crop from the same base rectangle with
+       the generous margin (see cropForMode). */
+    async function detectBaseRect() {
+      // use a mid-video frame where the card is fully shown
+      await seekTo(clamp(state.duration * 0.35, 0.3, state.duration - 0.1));
+      const dw = Math.min(782, state.vw);
+      const scale = dw / state.vw;
+      const dh = Math.round(state.vh * scale);
+      const c = grabRegion(0, 0, state.vw, state.vh, dw, dh);
+      const ctx = c.getContext("2d", { willReadFrequently: true });
+      const img = ctx.getImageData(0, 0, dw, dh).data;
+      const gold = new Uint8Array(dw * dh), light = new Uint8Array(dw * dh);
+      const gray = new Float32Array(dw * dh);
+      for (let i = 0, j = 0; i < img.length; i += 4, j++) {
+        const r = img[i], g = img[i + 1], b = img[i + 2];
+        const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+        gold[j] = (r > 140 && g > 60 && b < 125 && (r - b) > 55 && (g - b) > 15) ? 1 : 0;
+        light[j] = (mn > 120 && (mx - mn) < 60) ? 1 : 0;
+        gray[j] = 0.299 * r + 0.587 * g + 0.114 * b;
+      }
+
+      /* rectangle from a color mask: find the four straight frame lines */
+      function rectFromMask(mask) {
+        const rowCount = new Float32Array(dh);
+        for (let y = 0; y < dh; y++) {
+          let s = 0;
+          const off = y * dw;
+          for (let x = 0; x < dw; x++) s += mask[off + x];
+          rowCount[y] = s;
+        }
+        // top line: first strong horizontal line in the upper area
+        let top = -1;
+        for (let y = Math.floor(dh * 0.01); y < dh * 0.30; y++) {
+          if (rowCount[y] > dw * 0.22) { top = y; break; }
+        }
+        if (top < 0) return null;
+        // left/right lines: column coverage in a band below the top line,
+        // searched only in the side areas where the card edges can be
+        const b0 = top + 2, b1 = Math.min(dh - 1, top + Math.round(dh * 0.42));
+        const colThresh = (b1 - b0) * 0.35;
+        let left = -1, right = -1;
+        for (let x = Math.floor(dw * 0.04); x < dw * 0.38; x++) {
+          let s = 0;
+          for (let y = b0; y <= b1; y++) s += mask[y * dw + x];
+          if (s > colThresh) { left = x; break; }
+        }
+        for (let x = Math.floor(dw * 0.96); x > dw * 0.62; x--) {
+          let s = 0;
+          for (let y = b0; y <= b1; y++) s += mask[y * dw + x];
+          if (s > colThresh) { right = x; break; }
+        }
+        if (left < 0 || right <= left) return null;
+        // bottom line: the row inside the span with the widest coverage,
+        // within the vertical range a card bottom can occupy
+        const span = right - left;
+        let bestY = -1, bestC = span * 0.5;
+        const yLo = top + Math.round(dh * 0.45), yHi = Math.min(dh - 1, top + Math.round(dh * 0.85));
+        for (let y = yLo; y <= yHi; y++) {
+          let s = 0;
+          const off = y * dw;
+          for (let x = left + 4; x < right - 3; x++) s += mask[off + x];
+          if (s > bestC) { bestC = s; bestY = y; }
+        }
+        if (bestY < 0) return null;
+        return { l: left, t: top, r: right, b: bestY };
+      }
+
+      /* rectangle from luminance edges: the card is a bright rectangle on
+         the dimmed profile screen, so its contour forms the longest
+         straight edges even when there is no frame at all */
+      function firstStrong(prof, lo, hi, frac) {
+        let mx = 0;
+        for (let i = lo; i < hi; i++) if (prof[i] > mx) mx = prof[i];
+        if (mx <= 0) return -1;
+        const thr = mx * frac;
+        for (let i = lo; i < hi; i++) if (prof[i] > thr) return i;
+        return -1;
+      }
+      function edgeRect() {
+        const ex0 = Math.floor(dw * 0.15), ex1 = Math.floor(dw * 0.85);
+        const rowE = new Float32Array(Math.max(1, dh - 1));
+        for (let y = 1; y < dh; y++) {
+          let s = 0;
+          const off = y * dw, poff = (y - 1) * dw;
+          for (let x = ex0; x < ex1; x++) s += Math.abs(gray[off + x] - gray[poff + x]);
+          rowE[y - 1] = s / (ex1 - ex0);
+        }
+        const top = firstStrong(rowE, Math.floor(dh * 0.03), Math.floor(dh * 0.20), 0.6);
+        if (top < 0) return null;
+        const bottom = firstStrong(rowE, Math.floor(dh * 0.65), Math.floor(dh * 0.90), 0.7);
+        if (bottom < 0 || bottom - top < dh * 0.5) return null;
+        const colE = new Float32Array(Math.max(1, dw - 1));
+        const cy0 = top + 6, cy1 = bottom - 5;
+        for (let x = 1; x < dw; x++) {
+          let s = 0;
+          for (let y = cy0; y < cy1; y++) s += Math.abs(gray[y * dw + x] - gray[y * dw + x - 1]);
+          colE[x - 1] = s / Math.max(1, cy1 - cy0);
+        }
+        const left = firstStrong(colE, Math.floor(dw * 0.08), Math.floor(dw * 0.32), 0.6);
+        const right = firstStrong(colE, Math.floor(dw * 0.68), Math.floor(dw * 0.92), 0.7);
+        if (left < 0 || right <= left) return null;
+        return { l: left, t: top, r: right, b: bottom };
+      }
+
+      /* reject rectangles that cannot be the profile card, so a stray
+         line or edge never turns into a confident wrong crop */
+      function validRect(rc) {
+        const w = rc.r - rc.l, h = rc.b - rc.t;
+        const wf = w / dw, hf = h / dh, asp = w / h;
+        const cx = (rc.l + rc.r) / 2 / dw, cy = (rc.t + rc.b) / 2 / dh;
+        return wf > 0.42 && wf < 0.78 && hf > 0.50 && hf < 0.88 &&
+          asp > 1.3 && asp < 2.2 && cx > 0.38 && cx < 0.62 && cy > 0.35 && cy < 0.60;
+      }
+      /* candidate rectangles from every strategy, computed once */
+      const found = {};
+      const gRc = rectFromMask(gold); if (gRc && validRect(gRc)) found.gold = gRc;
+      const lRc = rectFromMask(light); if (lRc && validRect(lRc)) found.light = lRc;
+      const eRc = edgeRect(); if (eRc && validRect(eRc)) found.edge = eRc;
+
+      /* the contour rectangle is the base; the color-mask rectangles
+         are only a fallback for frames where the contour edges do
+         not validate. Stored in native coordinates - every crop is
+         derived from this one rectangle (see cropForMode). */
+      const base = found.edge || found.gold || found.light;
+      if (!base) {
+        state.baseRect = {
+          x: Math.round(state.vw * 0.21), y: Math.round(state.vh * 0.07),
+          w: even(state.vw * 0.58), h: even(state.vh * 0.73),
+        };
+        return "名刺の縁が見つからなかったため、標準の範囲を使います";
+      }
+      state.baseRect = {
+        x: Math.round(base.l / scale), y: Math.round(base.t / scale),
+        w: even(Math.round((base.r - base.l) / scale)),
+        h: even(Math.round((base.b - base.t) / scale)),
+      };
+      return null;
+    }
+
+    /* derive the crop for a frame type from the stored base rect:
+       normal = the base rect itself (just fit, zero margin); special
+       = the base rect plus the generous margin (frame-line pad + 2%
+       of the frame height) special frames were given before.
+       Switching the type re-derives from the base, so the trimming
+       position resets and manual drag/slider adjustments are
+       discarded. */
+    function cropForMode(mode) {
+      const b = state.baseRect;
+      if (!b) return { x: 0, y: 0, w: 16, h: 16 };
+      let pad = 0;
+      if (mode === "special") {
+        pad = Math.max(3, Math.round(state.vh * 0.012)) + Math.round(state.vh * 0.02);
+      }
+      const x0 = clamp(b.x - pad, 0, state.vw - 8);
+      const y0 = clamp(b.y - pad, 0, state.vh - 8);
+      const x1 = clamp(b.x + b.w + pad, x0 + 8, state.vw);
+      const y1 = clamp(b.y + b.h + pad, y0 + 8, state.vh);
+      return { x: Math.round(x0), y: Math.round(y0), w: even(x1 - x0), h: even(y1 - y0) };
+    }
+
+    /* --- loop detection --- */
+    async function detectLoop(onProgress) {
+      const stepS = 0.1;
+      // 1) content end: first huge full-frame jump (e.g. Control Center overlay)
+      const tw = 128, th = Math.max(16, Math.round(128 * state.vh / state.vw));
+      const nAll = Math.floor(state.duration / stepS);
+      const full = [];
+      for (let i = 0; i <= nAll; i++) {
+        await seekTo(i * stepS);
+        full.push(grayOf(grabRegion(0, 0, state.vw, state.vh, tw, th)));
+        if (onProgress && i % 6 === 0) onProgress(i / nAll * 0.4);
+      }
+      const diffs = [];
+      for (let i = 1; i < full.length; i++) diffs.push(mad(full[i], full[i - 1]));
+      const sorted = [...diffs].sort((a, b) => a - b);
+      const median = sorted[Math.floor(sorted.length / 2)] || 0;
+      let contentEnd = state.duration - 0.05;
+      for (let i = 3; i < diffs.length; i++) {
+        if (diffs[i] > Math.max(16, median * 3.5)) { contentEnd = (i + 1) * stepS - 0.12; break; }
+      }
+      contentEnd = clamp(contentEnd, 1.0, state.duration);
+      state.contentEnd = contentEnd;
+
+      // 2) thumbnails of the crop region up to contentEnd
+      const cw = 96, chh = Math.max(16, Math.round(96 * state.crop.h / state.crop.w));
+      const n = Math.floor(contentEnd / stepS);
+      const thumbs = [];
+      for (let i = 0; i <= n; i++) {
+        await seekTo(i * stepS);
+        thumbs.push(grayOf(grabRegion(state.crop.x, state.crop.y, state.crop.w, state.crop.h, cw, chh)));
+        if (onProgress && i % 6 === 0) onProgress(0.4 + (i / n) * 0.4);
+      }
+      // 3) search start/period minimizing seam difference (slight preference for longer periods)
+      const minP = 15, maxP = 45; // 1.5s .. 4.5s in 0.1s units
+      const startMin = 3;         // skip the opening 0.3s
+      let best = null;
+      for (let s = startMin; s + minP <= n; s++) {
+        for (let p = minP; p <= maxP && s + p <= n; p++) {
+          const d = mad(thumbs[s], thumbs[s + p]);
+          const score = d - p * 0.012;
+          if (!best || score < best.score) best = { s, p, d, score };
+        }
+      }
+      if (!best) { // very short video fallback
+        return { start: 0, end: contentEnd, madVal: null };
+      }
+      // 4) refine at frame precision around the coarse answer
+      let bStart = best.s * stepS, bPeriod = best.p * stepS, bMad = best.d;
+      const fw = 160, fh = Math.max(16, Math.round(160 * state.crop.h / state.crop.w));
+      for (const ds of [-0.067, -0.033, 0.033, 0.067]) {
+        const s2 = bStart + ds;
+        if (s2 < 0 || s2 + bPeriod > contentEnd) continue;
+        await seekTo(s2);
+        const a = grayOf(grabRegion(state.crop.x, state.crop.y, state.crop.w, state.crop.h, fw, fh));
+        await seekTo(s2 + bPeriod);
+        const b = grayOf(grabRegion(state.crop.x, state.crop.y, state.crop.w, state.crop.h, fw, fh));
+        const d = mad(a, b);
+        if (d < bMad) { bMad = d; bStart = s2; }
+      }
+      if (onProgress) onProgress(1);
+      return { start: Math.round(bStart * 100) / 100, end: Math.round((bStart + bPeriod) * 100) / 100, madVal: bMad };
+    }
+    </script>
+    <script>
+    "use strict";
+    /* ---------- step 2: crop UI ---------- */
+    const cropCanvas = $("cropCanvas");
+    const cctx = cropCanvas.getContext("2d");
+    const cropEls = { x: $("cropX"), y: $("cropY"), w: $("cropW"), h: $("cropH") };
+    const cropVals = { x: $("cropXVal"), y: $("cropYVal"), w: $("cropWVal"), h: $("cropHVal") };
+
+    function setupCropControls() {
+      cropEls.x.max = state.vw; cropEls.y.max = state.vh;
+      cropEls.w.max = state.vw; cropEls.h.max = state.vh;
+      cropEls.w.min = 16; cropEls.h.min = 16;
+    }
+    function applyCrop(crop, note) {
+      state.crop = {
+        x: clamp(Math.round(crop.x), 0, state.vw - 16),
+        y: clamp(Math.round(crop.y), 0, state.vh - 16),
+        w: even(clamp(crop.w, 16, state.vw - crop.x)),
+        h: even(clamp(crop.h, 16, state.vh - crop.y)),
+      };
+      syncCropUI();
+      if (note != null) $("cropNote").textContent = note + "（" +
+        state.crop.x + ", " + state.crop.y + " ／ " + state.crop.w + " × " + state.crop.h + " px）";
+      sizePreviewCanvas();
+    }
+    function syncCropUI() {
+      const c = state.crop;
+      cropEls.x.value = c.x; cropEls.y.value = c.y;
+      cropEls.w.value = c.w; cropEls.h.value = c.h;
+      cropVals.x.textContent = c.x + " px"; cropVals.y.textContent = c.y + " px";
+      cropVals.w.textContent = c.w + " px"; cropVals.h.textContent = c.h + " px";
+    }
+    ["x", "y", "w", "h"].forEach((k) => {
+      cropEls[k].addEventListener("input", () => {
+        const c = { ...state.crop };
+        c[k] = parseInt(cropEls[k].value, 10) || 0;
+        if (k === "x") c.x = clamp(c.x, 0, state.vw - c.w);
+        if (k === "y") c.y = clamp(c.y, 0, state.vh - c.h);
+        if (k === "w") c.w = even(clamp(c.w, 16, state.vw - c.x));
+        if (k === "h") c.h = even(clamp(c.h, 16, state.vh - c.y));
+        state.crop = c;
+        syncCropUI();
+        drawCropCanvas();
+        drawPreviewFrame();
+      });
+    });
+
+    /* stage canvas: full frame + crop rect with corner handles */
+    let stageScale = 1;
+    function drawCropCanvas() {
+      if (!state.vw) return;
+      const cw = cropCanvas.width;
+      stageScale = cw / state.vw;
+      const chh = Math.round(state.vh * stageScale);
+      if (cropCanvas.height !== chh) cropCanvas.height = chh;
+      cctx.drawImage(video, 0, 0, cw, chh);
+      const c = state.crop, s = stageScale;
+      const rx = c.x * s, ry = c.y * s, rw = c.w * s, rh = c.h * s;
+      cctx.fillStyle = "rgba(0,0,0,0.55)";
+      cctx.fillRect(0, 0, cw, ry);
+      cctx.fillRect(0, ry + rh, cw, chh - ry - rh);
+      cctx.fillRect(0, ry, rx, rh);
+      cctx.fillRect(rx + rw, ry, cw - rx - rw, rh);
+      cctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--gold") || "#c9a227";
+      cctx.lineWidth = 2.5;
+      cctx.strokeRect(rx, ry, rw, rh);
+      cctx.fillStyle = cctx.strokeStyle;
+      const hs = 9;
+      [[rx, ry], [rx + rw, ry], [rx, ry + rh], [rx + rw, ry + rh]].forEach(([hx, hy]) => {
+        cctx.fillRect(hx - hs / 2, hy - hs / 2, hs, hs);
+      });
+    }
+
+    /* drag to move / resize the crop rect */
+    let drag = null;
+    function canvasPos(e) {
+      const r = cropCanvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - r.left) / r.width * state.vw,
+        y: (e.clientY - r.top) / r.height * state.vh,
+      };
+    }
+    cropCanvas.addEventListener("pointerdown", (e) => {
+      if (!state.vw) return;
+      const p = canvasPos(e), c = state.crop;
+      const tol = 26 / stageScale;
+      const corners = [
+        ["nw", c.x, c.y], ["ne", c.x + c.w, c.y],
+        ["sw", c.x, c.y + c.h], ["se", c.x + c.w, c.y + c.h],
+      ];
+      let mode = null;
+      for (const [name, cx, cy] of corners) {
+        if (Math.abs(p.x - cx) < tol && Math.abs(p.y - cy) < tol) { mode = name; break; }
+      }
+      if (!mode && p.x >= c.x && p.x <= c.x + c.w && p.y >= c.y && p.y <= c.y + c.h) mode = "move";
+      if (!mode) return;
+      drag = { mode, startX: p.x, startY: p.y, orig: { ...c } };
+      cropCanvas.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    cropCanvas.addEventListener("pointermove", (e) => {
+      if (!drag) return;
+      const p = canvasPos(e), o = drag.orig;
+      const dx = p.x - drag.startX, dy = p.y - drag.startY;
+      const c = { ...o };
+      if (drag.mode === "move") {
+        c.x = clamp(o.x + dx, 0, state.vw - o.w);
+        c.y = clamp(o.y + dy, 0, state.vh - o.h);
+      } else {
+        let x0 = o.x, y0 = o.y, x1 = o.x + o.w, y1 = o.y + o.h;
+        if (drag.mode.includes("w")) x0 = clamp(o.x + dx, 0, x1 - 16);
+        if (drag.mode.includes("e")) x1 = clamp(o.x + o.w + dx, x0 + 16, state.vw);
+        if (drag.mode.includes("n")) y0 = clamp(o.y + dy, 0, y1 - 16);
+        if (drag.mode.includes("s")) y1 = clamp(o.y + o.h + dy, y0 + 16, state.vh);
+        c.x = Math.round(x0); c.y = Math.round(y0);
+        c.w = even(x1 - x0); c.h = even(y1 - y0);
+      }
+      c.x = Math.round(c.x); c.y = Math.round(c.y);
+      state.crop = c;
+      syncCropUI();
+      drawCropCanvas();
+    });
+    ["pointerup", "pointercancel"].forEach(ev => cropCanvas.addEventListener(ev, () => {
+      if (drag) { drag = null; $("cropNote").textContent = "手動で調整しました（" +
+        state.crop.x + ", " + state.crop.y + " ／ " + state.crop.w + " × " + state.crop.h + " px）"; drawPreviewFrame(); }
+    }));
+    /* No re-detect button, and no re-detection on a type switch:
+       the crop is re-derived from the stored base contour rect with
+       the newly picked type's margin, which resets the trimming
+       position. The sliders / corner drags handle fine adjustment. */
+    $("frameType").addEventListener("change", () => {
+      state.frameMode = $("frameType").value;
+      if (!state.baseRect) return;
+      const note = state.frameMode === "special" ? "特殊枠に切り替えました" : "通常枠に切り替えました";
+      applyCrop(cropForMode(state.frameMode), note);
+      drawCropCanvas();
+      drawPreviewFrame();
+    });
+
+    /* ---------- step 3: loop UI + preview ---------- */
+    const previewCanvas = $("previewCanvas");
+    const pctx = previewCanvas.getContext("2d");
+    function sizePreviewCanvas() {
+      if (!state.crop.w) return;
+      const maxW = 560;
+      const w = Math.min(maxW, state.crop.w);
+      previewCanvas.width = w;
+      previewCanvas.height = Math.round(w * state.crop.h / state.crop.w);
+    }
+    function drawPreviewFrame() {
+      if (!state.crop.w || !state.vw) return;
+      pctx.drawImage(video, state.crop.x, state.crop.y, state.crop.w, state.crop.h,
+        0, 0, previewCanvas.width, previewCanvas.height);
+    }
+    function setupLoopControls() {
+      $("loopStart").max = state.duration;
+      $("loopEnd").max = state.duration;
+    }
+    function applyLoop(start, end, madVal) {
+      state.loopStart = clamp(start, 0, state.duration);
+      state.loopEnd = clamp(end, state.loopStart + 0.1, state.duration);
+      state.seamMAD = madVal;
+      syncLoopUI();
+    }
+    function syncLoopUI() {
+      $("loopStart").value = state.loopStart;
+      $("loopEnd").value = state.loopEnd;
+      $("loopStartVal").textContent = fmtT(state.loopStart);
+      $("loopEndVal").textContent = fmtT(state.loopEnd);
+      $("loopLen").textContent = fmtT(Math.max(0, state.loopEnd - state.loopStart));
+      $("seamScore").textContent = state.seamMAD == null ? "–" :
+        Math.round(clamp(100 - state.seamMAD * 3.5, 0, 100)) + " %";
+    }
+    $("loopStart").addEventListener("input", () => {
+      state.loopStart = Math.min(parseFloat($("loopStart").value), state.loopEnd - 0.1);
+      state.seamMAD = null;
+      syncLoopUI();
+      seekTo(state.loopStart).then(drawPreviewFrame);
+    });
+    $("loopEnd").addEventListener("input", () => {
+      state.loopEnd = Math.max(parseFloat($("loopEnd").value), state.loopStart + 0.1);
+      state.seamMAD = null;
+      syncLoopUI();
+      seekTo(state.loopEnd - 0.05).then(drawPreviewFrame);
+    });
+    $("redetectLoop").addEventListener("click", async () => {
+      if (state.busy || !state.file) return;
+      state.busy = true;
+      stopPreview();
+      setStatus($("status3"), "ループ区間を解析しています…", "working");
+      try {
+        const loop = await detectLoop((p) => setBar($("bar3"), p * 100));
+        applyLoop(loop.start, loop.end, loop.madVal);
+        await seekTo(state.loopStart);
+        drawPreviewFrame();
+        setStatus($("status3"), "検出し直しました。", "done");
+      } catch (err) {
+        setStatus($("status3"), "検出に失敗しました。スライダーで調整してください。", "error");
+      } finally {
+        setBar($("bar3"), null);
+        state.busy = false;
+      }
+    });
+
+    /* looping preview playback (muted, crop region only) */
+    let previewPlaying = false, rafId = null;
+    function drawLoop() {
+      if (!previewPlaying) return;
+      if (video.currentTime >= state.loopEnd - 0.02 || video.currentTime < state.loopStart - 0.05) {
+        video.currentTime = state.loopStart;
+      }
+      drawPreviewFrame();
+      rafId = requestAnimationFrame(drawLoop);
+    }
+    async function startPreview() {
+      if (!state.file || state.busy) return;
+      previewPlaying = true;
+      $("playPreview").textContent = "再生を止める";
+      video.muted = true;
+      await seekTo(state.loopStart);
+      try { await video.play(); } catch (e) { /* draw-only fallback */ }
+      drawLoop();
+    }
+    function stopPreview() {
+      if (!previewPlaying) return;
+      previewPlaying = false;
+      $("playPreview").textContent = "ループ再生で確認";
+      if (rafId) cancelAnimationFrame(rafId);
+      video.pause();
+    }
+    $("playPreview").addEventListener("click", () => {
+      previewPlaying ? stopPreview() : startPreview();
+    });
+
+    /* ---------- step 4: export ---------- */
+    const FFMPEG_JS = "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js";
+    const FFMPEG_CORE = "https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js";
+    let ffmpegInstance = null, ffmpegLoading = null;
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = () => reject(new Error("script load failed"));
+        document.head.appendChild(s);
+      });
+    }
+    async function getFFmpeg(onPhase) {
+      if (ffmpegInstance) return ffmpegInstance;
+      if (!ffmpegLoading) {
+        ffmpegLoading = (async () => {
+          onPhase("変換ツールを読み込んでいます…（初回のみ、約30MB）");
+          await loadScript(FFMPEG_JS);
+          if (!window.FFmpeg) throw new Error("ffmpeg lib missing");
+          const ff = window.FFmpeg.createFFmpeg({ log: false, corePath: FFMPEG_CORE, mainName: "main" });
+          await ff.load();
+          return ff;
+        })();
+      }
+      try {
+        ffmpegInstance = await ffmpegLoading;
+      } catch (e) {
+        ffmpegLoading = null; // allow a later export to retry the load
+        throw e;
+      }
+      return ffmpegInstance;
+    }
+
+    async function exportWithFFmpeg() {
+      const ff = await getFFmpeg((m) => setStatus($("status4"), m, "working"));
+      const { fetchFile } = window.FFmpeg;
+      setStatus($("status4"), "変換しています…", "working");
+      const ext = (state.fileName.match(/\.(mp4|mov|m4v|webm)$/i) || [null, "mp4"])[1].toLowerCase();
+      const inName = "input." + ext;
+      ff.FS("writeFile", inName, await fetchFile(state.file));
+      const c = state.crop;
+      const start = state.loopStart, dur = state.loopEnd - state.loopStart;
+      ff.setProgress(({ ratio }) => {
+        const pct = clamp(ratio * state.duration / dur * 100, 0, 99);
+        setBar($("bar4"), pct);
+      });
+      await ff.run(
+        "-ss", start.toFixed(3), "-i", inName,
+        "-t", dur.toFixed(3),
+        "-vf", "crop=" + c.w + ":" + c.h + ":" + c.x + ":" + c.y,
+        "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+        "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+        "output.mp4"
+      );
+      const data = ff.FS("readFile", "output.mp4");
+      try { ff.FS("unlink", inName); ff.FS("unlink", "output.mp4"); } catch (e) {}
+      return { blob: new Blob([data.buffer], { type: "video/mp4" }), extOut: "mp4" };
+    }
+
+    /* fallback: realtime capture, no audio track is ever recorded */
+    async function exportWithRecorder() {
+      const mimeCandidates = ["video/mp4", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm", ""];
+      let mime = "";
+      for (const m of mimeCandidates) {
+        if (m === "" || (window.MediaRecorder && MediaRecorder.isTypeSupported(m))) { mime = m; break; }
+      }
+      if (!window.MediaRecorder) throw new Error("MediaRecorder unsupported");
+      const c = state.crop;
+      const scaleDown = Math.min(1, 960 / c.w);
+      const cap = makeCanvas(even(c.w * scaleDown), even(c.h * scaleDown));
+      const cctx2 = cap.getContext("2d");
+      const stream = cap.captureStream(30);
+      const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 6_000_000 } : { videoBitsPerSecond: 6_000_000 });
+      const chunks = [];
+      rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+      const done = new Promise((res) => { rec.onstop = res; });
+      const dur = state.loopEnd - state.loopStart;
+      video.muted = true;
+      await seekTo(state.loopStart);
+      setStatus($("status4"), "実時間で取り込んでいます…（" + dur.toFixed(1) + "秒）", "working");
+      rec.start(200);
+      const t0 = performance.now();
+      try { await video.play(); } catch (e) {}
+      await new Promise((resolve) => {
+        const tick = () => {
+          const el = (performance.now() - t0) / 1000;
+          cctx2.drawImage(video, c.x, c.y, c.w, c.h, 0, 0, cap.width, cap.height);
+          setBar($("bar4"), el / dur * 100);
+          if (el < dur && video.currentTime < state.loopEnd) requestAnimationFrame(tick);
+          else resolve();
+        };
+        tick();
+      });
+      video.pause();
+      rec.stop();
+      await done;
+      const type = rec.mimeType || mime || "video/webm";
+      return { blob: new Blob(chunks, { type }), extOut: type.includes("mp4") ? "mp4" : "webm" };
+    }
+
+    $("exportBtn").addEventListener("click", async () => {
+      if (!state.file || state.busy) return;
+      if (state.loopEnd - state.loopStart < 0.3) {
+        setStatus($("status4"), "ループ区間が短すぎます。開始と終了を見直してください。", "error");
+        return;
+      }
+      state.busy = true;
+      stopPreview();
+      $("exportBtn").disabled = true;
+      $("resultBox").style.display = "none";
+      if (state.resultUrl) { URL.revokeObjectURL(state.resultUrl); state.resultUrl = null; }
+      setBar($("bar4"), 2);
+      let result = null, usedFallback = false;
+      try {
+        result = await exportWithFFmpeg();
+      } catch (err) {
+        usedFallback = true;
+        setStatus($("status4"), "MP4変換ツールを読み込めなかったため、代替方式で書き出します…", "working");
+        try {
+          result = await exportWithRecorder();
+        } catch (err2) {
+          result = null;
+        }
+      }
+      state.busy = false;
+      $("exportBtn").disabled = false;
+      setBar($("bar4"), null);
+      if (!result) {
+        setStatus($("status4"), "書き出しに失敗しました。ブラウザを変えてお試しください。", "error");
+        return;
+      }
+      state.resultUrl = URL.createObjectURL(result.blob);
+      const base = state.fileName.replace(/\.[^.]+$/, "") || "video";
+      const fname = base + "-loop." + result.extOut;
+      state.resultBlob = result.blob;
+      state.resultName = fname;
+      const link = $("downloadLink");
+      link.href = state.resultUrl;
+      link.download = fname;
+      const rv = $("resultVideo");
+      rv.src = state.resultUrl;
+      $("resultBox").style.display = "block";
+      $("resultInfo").textContent = fname + " ／ " + (result.blob.size / 1048576).toFixed(1) + " MB ／ 音声なし" +
+        (usedFallback && result.extOut !== "mp4" ? "（代替方式のためWebM形式）" : "");
+      /* Saving: an <a download> to a blob URL is ignored or blocked by
+         iOS Safari and most in-app browsers, so the primary save path is
+         the Web Share API with a File, whose share sheet offers
+         "ビデオを保存" (Save Video) into the Photos app. The download
+         link stays as the fallback for desktop / Android browsers. */
+      const shareFile = makeShareFile();
+      const canShare = !!(shareFile && navigator.canShare && navigator.canShare({ files: [shareFile] }));
+      $("shareBtn").style.display = canShare ? "block" : "none";
+      $("saveHint").textContent = canShare
+        ? "「動画を保存する」を押すと共有シートが開きます。「ビデオを保存」などを選ぶと端末の写真・動画アプリに保存されます。"
+        : "このブラウザでは共有保存が使えません。上の動画を長押しして「ビデオを保存」を選ぶか、「ダウンロード」から保存してください（パソコン・Android向け）。";
+      setStatus($("status4"), "書き出しが完了しました。下のボタンから保存してください。", "done");
+      rv.play().catch(() => {});
+    });
+
+    function makeShareFile() {
+      if (!state.resultBlob) return null;
+      try {
+        return new File([state.resultBlob], state.resultName,
+          { type: state.resultBlob.type || "video/mp4" });
+      } catch (e) {
+        return null;
+      }
+    }
+
+    $("shareBtn").addEventListener("click", async () => {
+      const shareFile = makeShareFile();
+      if (!shareFile || !navigator.share) return;
+      try {
+        await navigator.share({ files: [shareFile], title: state.resultName });
+      } catch (e) {
+        /* AbortError = the user closed the share sheet; anything else
+           means sharing is blocked here, so point at the fallbacks. */
+        if (e && e.name !== "AbortError") {
+          $("saveHint").textContent = "共有シートを開けませんでした。上の動画を長押しして「ビデオを保存」を選ぶか、「ダウンロード」から保存してください。";
+        }
+      }
+    });
+    </script>
+  </body>
+</html>
